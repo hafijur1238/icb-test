@@ -1,564 +1,454 @@
 <script setup>
 import { ref, reactive } from "vue";
+import { useRouter } from "#imports";
+
 const router = useRouter();
 
-// Form values
+// Authorization token
+const TOKEN =
+	"eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJJQ0JBRDAyMjIyMDkiLCJpYXQiOjE3NDQ0ODI1MTYsInJvbGVzIjoiUk9MRV9BRE1JTiIsImV4cCI6MTc0NDQ4NTUxNn0.9r5YboAoUqLe3jDsFW_riJS1CFxOXrMzBPoKNjPGp-Q";
+
+// Upload setup
+const { startUpload } = useUploadThing("videoAndImage", {
+	onClientUploadComplete(res) {
+		console.log("Upload complete", res);
+		alert("Upload Completed");
+	},
+});
+
+// Division, District, Thana, PaymentMethod options
+const divisions = [
+	{ id: 1, name: "Dhaka" },
+	{ id: 2, name: "Chattogram" },
+	{ id: 3, name: "Sylhet" },
+];
+
+const districts = [
+	{ id: 10, name: "Dhaka District" },
+	{ id: 11, name: "Gazipur" },
+	{ id: 12, name: "Narayanganj" },
+];
+
+const thanas = [
+	{ id: 100, name: "Banani" },
+	{ id: 101, name: "Gulshan" },
+	{ id: 102, name: "Dhanmondi" },
+];
+
+const paymentMethods = [
+	{ id: 1, name: "Mobile Wallet" },
+	{ id: 2, name: "Bank Transfer" },
+	{ id: 3, name: "Cash Payment" },
+];
+
+// Form data
 const form = reactive({
-  fullName: "",
-  email: "",
-  nid: "",
-  nidImage: "",
-  phone: "",
-  passport: "",
-  passportImage: "",
-  image: "",
-  division: "",
-  district: "",
-  thana: "",
-  address: "",
-  paymentMethod: "",
-  transactionId: "",
+	fullName: "",
+	email: "",
+	nid: "",
+	nidImage: "",
+	phone: "",
+	passport: "",
+	passportImage: "",
+	image: "",
+	division: "",
+	district: "",
+	thana: "",
+	address: "",
+	paymentMethod: "",
+	transactionId: "",
 });
 
-// Track which fields have been touched (blurred)
-const touched = reactive({
-  fullName: false,
-  email: false,
-  nid: false,
-  nidImage: false,
-  phone: false,
-  passport: false,
-  passportImage: false,
-  image: false,
-  division: false,
-  district: false,
-  thana: false,
-  address: false,
-  paymentMethod: false,
-  transactionId: false,
-});
-
-// Store validation errors
+const touched = reactive({});
 const errors = reactive({});
 const isSubmitting = ref(false);
 
+// Modal control
+const showModal = ref(false);
+const toggleModal = () => {
+	showModal.value = !showModal.value;
+};
+
+// Validation rules
 const validators = {
-  fullName: (value) => {
-    if (!value || value.length < 1) return "Full Name is required";
-    if (value.length > 50) return "Max 50 characters allowed";
-    return null;
-  },
-
-  email: (value) => {
-    if (!value || value.length < 1) return "Email is required";
-    // Simple email regex
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(value)) return "Invalid email address";
-    return null;
-  },
-
-  nid: (value) => {
-    if (!value) return "NID is required";
-    if (value.length < 10) return "NID must be at least 10 characters";
-    if (value.length > 20) return "NID must be at most 20 characters";
-    return null;
-  },
-
-  nidImage: (value) => {
-    if (!value) return null; // Optional
-    // URL validation regex
-    const urlRegex =
-      /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
-    if (!urlRegex.test(value)) return "Invalid NID image URL";
-    return null;
-  },
-
-  phone: (value) => {
-    if (!value) return "Phone is required";
-    if (value.length < 10) return "Phone must be at least 10 digits";
-    if (value.length > 15) return "Phone must be at most 15 digits";
-    return null;
-  },
-
-  passport: (value) => {
-    if (!value) return null; // Optional
-    if (value.length < 6) return "Passport must be at least 6 characters";
-    if (value.length > 15) return "Passport must be at most 15 characters";
-    return null;
-  },
-
-  passportImage: (value) => {
-    if (!value) return null; // Optional
-    const urlRegex =
-      /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
-    if (!urlRegex.test(value)) return "Invalid passport image URL";
-    return null;
-  },
-
-  image: (value) => {
-    if (!value) return null; // Optional
-    const urlRegex =
-      /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/;
-    if (!urlRegex.test(value)) return "Invalid image URL";
-    return null;
-  },
-
-  division: (value) => {
-    if (!value || value.length < 1) return "Division is required";
-    return null;
-  },
-
-  district: (value) => {
-    if (!value || value.length < 1) return "District is required";
-    return null;
-  },
-
-  thana: (value) => {
-    if (!value || value.length < 1) return "Thana is required";
-    return null;
-  },
-
-  address: (value) => {
-    if (!value) return "Address is required";
-    if (value.length < 5) return "Address must be at least 5 characters";
-    return null;
-  },
-
-  paymentMethod: (value) => {
-    if (!value) return "Payment method is required";
-    return null;
-  },
-
-  transactionId: (value) => {
-    // Optional
-    return null;
-  },
+	fullName: (value) => (!value ? "Full Name is required" : null),
+	email: (value) =>
+		!value
+			? "Email is required"
+			: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+			? "Invalid email"
+			: null,
+	nid: (value) => (!value ? "NID is required" : null),
+	phone: (value) => (!value ? "Phone number is required" : null),
+	division: (value) => (!value ? "Division is required" : null),
+	district: (value) => (!value ? "District is required" : null),
+	thana: (value) => (!value ? "Thana is required" : null),
+	address: (value) => (!value ? "Address is required" : null),
+	paymentMethod: (value) => (!value ? "Payment method is required" : null),
 };
 
-// Validate a single field on blur
 const validateField = (fieldName) => {
-  touched[fieldName] = true;
-
-  if (validators[fieldName]) {
-    const errorMessage = validators[fieldName](form[fieldName]);
-    if (errorMessage) {
-      errors[fieldName] = errorMessage;
-    } else {
-      delete errors[fieldName];
-    }
-  }
+	touched[fieldName] = true;
+	if (validators[fieldName]) {
+		const error = validators[fieldName](form[fieldName]);
+		if (error) errors[fieldName] = error;
+		else delete errors[fieldName];
+	}
 };
 
-// Validate all fields (for form submission)
 const validateAllFields = () => {
-  let isValid = true;
+	let isValid = true;
+	Object.keys(validators).forEach((field) => {
+		const error = validators[field](form[field]);
+		if (error) {
+			errors[field] = error;
+			touched[field] = true;
+			isValid = false;
+		} else {
+			delete errors[field];
+		}
+	});
+	return isValid;
+};
 
-  Object.keys(validators).forEach((fieldName) => {
-    const errorMessage = validators[fieldName](form[fieldName]);
-    if (errorMessage) {
-      errors[fieldName] = errorMessage;
-      touched[fieldName] = true;
-      isValid = false;
-    } else {
-      delete errors[fieldName];
-    }
-  });
-
-  return isValid;
+// Upload file and set URL
+const handleFileUpload = async (event, fieldName) => {
+	const file = event.target.files?.[0];
+	if (!file) return;
+	try {
+		const res = await startUpload([file]);
+		console.log("Upload result:", res);
+		form[fieldName] = res?.[0]?.url || "";
+	} catch (err) {
+		console.error("Upload error:", err);
+		form[fieldName] = ""; // fallback if upload fails
+		alert("Upload failed!");
+	}
 };
 
 // Handle form submission
 const handleSubmit = async () => {
-  isSubmitting.value = true;
+	isSubmitting.value = true;
 
-  // Validate all fields
-  const isValid = validateAllFields();
+	const isValid = validateAllFields();
+	if (!isValid) {
+		isSubmitting.value = false;
+		return;
+	}
 
-  if (isValid) {
-    try {
-      // Form submission logic here
-      console.log("Form submitted successfully:", form);
-      // ***** api call here****
+	try {
+		const response = await $fetch("http://103.174.50.71:8080/member", {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${TOKEN}`,
+				"Content-Type": "application/json",
+			},
+			body: {
+				fullName: form.fullName,
+				nid: form.nid,
+				nidUrl: form.nidImage || "https://example.com/default-nid.jpg",
+				passPortSizePhoto:
+					form.image || "https://example.com/default-profile.jpg",
+				passportNumber: form.passport,
+				passportPhotoUrl:
+					form.passportImage || "https://example.com/default-passport.jpg",
+				phoneNumber: form.phone,
+				email: form.email,
+				divisionId: Number(form.division),
+				districtId: Number(form.district),
+				thanaId: Number(form.thana),
+				address: form.address,
+				paymentMethodId: Number(form.paymentMethod),
+				transactionId: form.transactionId,
+				bankStatementUrl: "",
+			},
+		});
 
-      // Reset form or redirect user
-    } catch (error) {
-      console.error("Error submitting form:", error);
-    }
-  }
-
-  isSubmitting.value = false;
+		console.log("Success:", response);
+		alert("Form submitted successfully!");
+		router.push("/thank-you");
+	} catch (err) {
+		console.error("Submission error:", err);
+		alert("Submission failed!");
+	} finally {
+		isSubmitting.value = false;
+	}
 };
 
-// go back to previous page
-const goBack = function () {
-  router.go(-1);
+// Go back
+const goBack = () => {
+	router.go(-1);
 };
-
-const alert = (msg) => {
-  window.alert(msg);
-};
-
-const { startUpload } = useUploadThing("videoAndImage", {
-  onClientUploadComplete(res) {
-    console.log(`onClientUploadComplete`, res);
-    alert("Upload Completed");
-    // profilePicture.value = res[0].ufsUrl;
-  },
-});
 </script>
 
 <template>
-  <div class="max-w-6xl mx-auto p-8 bg-white shadow-lg rounded-lg mt-28 mb-20">
-    <!-- Back Button -->
-    <div class="mb-6">
-      <button
-        @click="goBack"
-        class="text-blue-600 hover:text-blue-800 font-semibold"
-      >
-        ← Back
-      </button>
-    </div>
+	<div class="max-w-6xl mx-auto p-8 bg-white shadow-lg rounded-lg mt-28 mb-20">
+		<!-- Back Button -->
+		<div class="mb-6">
+			<button
+				@click="goBack"
+				class="text-blue-600 hover:text-blue-800 font-semibold"
+			>
+				← Back
+			</button>
+		</div>
 
-    <!-- Header -->
-    <div class="text-center mb-8">
-      <h2 class="text-2xl font-semibold text-gray-800">
-        Join us today to connect with great ventures and <br />
-        make the most of your investments!
-      </h2>
-    </div>
+		<!-- Header -->
+		<div class="text-center mb-8">
+			<h2 class="text-2xl font-semibold text-gray-800">
+				Join us today to connect with great ventures and <br />
+				make the most of your investments!
+			</h2>
+		</div>
 
-    <!-- Registration Notice -->
-    <div class="bg-[#AEA491] p-6 rounded-lg mb-6">
-      <h3 class="font-semibold text-white">*Registration Notice</h3>
-      <p class="text-sm text-white">
-        To complete your registration, please note that a payment of [amount] is
-        required. You can make this payment through any of the following
-        methods:
-      </p>
-      <ul class="list-disc text-sm text-white pl-4">
-        <li>Mobile Wallet: [Mobile Wallet Number]</li>
-        <li>Bank Transfer: [Bank Account Details]</li>
-        <li>Cash Payment: [Applicable for offline registration]</li>
-      </ul>
-      <p class="text-sm text-white">
-        Once the payment is made, kindly retain the receipt or transaction ID as
-        proof of payment. For any queries or assistance, feel free to contact us
-        at [Contact Information].
-      </p>
-    </div>
+		<!-- Registration Notice -->
+		<div class="bg-[#AEA491] p-6 rounded-lg mb-6">
+			<h3 class="font-semibold text-white">*Registration Notice</h3>
+			<p class="text-sm text-white">
+				Payment of [amount] required. You can make this payment through:
+			</p>
+			<ul class="list-disc text-sm text-white pl-4">
+				<li>Mobile Wallet</li>
+				<li>Bank Transfer</li>
+				<li>Cash Payment</li>
+			</ul>
+		</div>
 
-    <!-- Form -->
-    <form
-      @submit.prevent="handleSubmit"
-      class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6"
-    >
-      <!-- Full Name & Email -->
-      <div>
-        <label class="block text-gray-700">Your Full address</label>
-        <input
-          id="fullName"
-          v-model="form.fullName"
-          @blur="validateField('fullName')"
-          @input="validateField('fullName')"
-          type="text"
-          class="input-field w-full"
-          placeholder="Enter full Name"
-        />
-        <p
-          v-if="touched.fullName && errors.fullName"
-          class="text-red-500 text-sm mt-1"
-        >
-          {{ errors.fullName }}
-        </p>
-      </div>
+		<!-- Form -->
+		<form
+			@submit.prevent="handleSubmit"
+			class="grid grid-cols-1 sm:grid-cols-2 gap-6"
+		>
+			<!-- Full Name -->
+			<div>
+				<label class="block text-gray-700">Full Name</label>
+				<input
+					v-model="form.fullName"
+					@blur="validateField('fullName')"
+					type="text"
+					class="input-field"
+					placeholder="Enter full name"
+				/>
+				<p
+					v-if="touched.fullName && errors.fullName"
+					class="text-red-500 text-sm"
+				>
+					{{ errors.fullName }}
+				</p>
+			</div>
 
-      <div>
-        <label class="block text-gray-700">Email address</label>
-        <input
-          v-model="form.email"
-          type="email"
-          @blur="validateField('email')"
-          class="input-field w-full"
-          placeholder="Enter email"
-        />
-        <p
-          v-if="touched.email && errors.email"
-          class="text-red-500 text-sm mt-1"
-        >
-          {{ errors.email }}
-        </p>
-      </div>
+			<!-- Email -->
+			<div>
+				<label class="block text-gray-700">Email Address</label>
+				<input
+					v-model="form.email"
+					@blur="validateField('email')"
+					type="email"
+					class="input-field"
+					placeholder="Enter email"
+				/>
+				<p v-if="touched.email && errors.email" class="text-red-500 text-sm">
+					{{ errors.email }}
+				</p>
+			</div>
 
-      <!-- NID Number & NID Image -->
-      <div>
-        <label class="block text-gray-700">NID number</label>
-        <input
-          v-model="nid"
-          type="text"
-          @blur="validateField('nid')"
-          class="input-field w-full"
-          placeholder="Enter NID number"
-        />
-        <p v-if="touched.nid && errors.nid" class="text-red-500 text-sm mt-1">
-          {{ errors.nid }}
-        </p>
-      </div>
-      <div>
-        <label class="block text-gray-700">NID image/PDF</label>
-        <!-- <input
-          @change="handleFileUpload($event, 'nidImage')"
-          type="file"
-          class="file-input"
-        /> -->
+			<!-- NID -->
+			<div>
+				<label class="block text-gray-700">NID Number</label>
+				<input
+					v-model="form.nid"
+					@blur="validateField('nid')"
+					type="text"
+					class="input-field"
+					placeholder="Enter NID number"
+				/>
+				<p v-if="touched.nid && errors.nid" class="text-red-500 text-sm">
+					{{ errors.nid }}
+				</p>
+			</div>
 
-        <input
-          type="file"
-          v-bind:on-change="nidImage"
-          @blur="validateField('nidImage')"
-          @input="validateField('nidImage')"
-          class="file-input w-full"
-          @change="
-            async (e) => {
-              console.log(e);
-              const file = e.target.files?.[0];
-              if (!file) return;
-              try {
-                const result = await startUpload([file]);
-                console.log('Upload result:', result);
-              } catch (error) {
-                console.error('Upload error:', error);
-              }
-            }
-          "
-        />
-      </div>
+			<!-- Upload NID Image -->
+			<div>
+				<label class="block text-gray-700">Upload NID Image</label>
+				<input
+					type="file"
+					class="file-input"
+					@change="(e) => handleFileUpload(e, 'nidImage')"
+				/>
+			</div>
 
-      <!-- Phone Number & Passport Number -->
-      <div>
-        <label class="block text-gray-700">Phone number</label>
-        <input
-          v-model="phone"
-          type="text"
-          @blur="validateField('phone')"
-          @input="validateField('phone')"
-          class="input-field w-full"
-          placeholder="Enter phone number"
-        />
-        <p
-          v-if="touched.phone && errors.phone"
-          class="text-red-500 text-sm mt-1"
-        >
-          {{ errors.phone }}
-        </p>
-      </div>
-      <div>
-        <label class="block text-gray-700">Passport number (if any)</label>
-        <input
-          v-model="passport"
-          type="text"
-          @blur="validateField('passport')"
-          @input="validateField('passport')"
-          class="input-field w-full"
-          placeholder="Enter passport number"
-        />
-        <p
-          v-if="touched.passport && errors.passport"
-          class="text-red-500 text-sm mt-1"
-        >
-          {{ errors.passport }}
-        </p>
-      </div>
+			<!-- Phone -->
+			<div>
+				<label class="block text-gray-700">Phone Number</label>
+				<input
+					v-model="form.phone"
+					@blur="validateField('phone')"
+					type="text"
+					class="input-field"
+					placeholder="Enter phone number"
+				/>
+				<p v-if="touched.phone && errors.phone" class="text-red-500 text-sm">
+					{{ errors.phone }}
+				</p>
+			</div>
 
-      <!-- Passport Photo & Image -->
-      <div>
-        <label class="block text-gray-700">Passport size photo</label>
-        <input
-          @change="handleFileUpload($event, 'passportPhoto')"
-          type="file"
-          class="file-input w-full"
-        />
-      </div>
-      <div>
-        <label class="block text-gray-700">Passport Image (if any)</label>
-        <label>
-          <input
-            type="file"
-            v-bind:on-change="passportImage"
-            @blur="validateField('passportImage')"
-            @input="validateField('passportImage')"
-            class="file-input w-full"
-            @change="
-              async (e) => {
-                console.log(e);
-                const file = e.target.files?.[0];
-                if (!file) return;
-                try {
-                  const result = await startUpload([file]);
-                  console.log('Upload result:', result);
-                } catch (error) {
-                  console.error('Upload error:', error);
-                }
-              }
-            "
-          />
-        </label>
-      </div>
+			<!-- Passport -->
+			<div>
+				<label class="block text-gray-700">Passport Number</label>
+				<input
+					v-model="form.passport"
+					type="text"
+					class="input-field"
+					placeholder="Enter passport number (optional)"
+				/>
+			</div>
 
-      <!-- Division, District, Thana (Dropdowns) -->
-      <div
-        class="col-span-1 sm:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4"
-      >
-        <div>
-          <label class="block text-gray-700">Division</label>
-          <select
-            v-model="form.division"
-            @change="updateDistricts"
-            class="input-field w-full"
-          >
-            <option value="" disabled selected>Select Division</option>
-            <option
-              v-for="division in divisions"
-              :key="division"
-              :value="division"
-            >
-              {{ division }}
-            </option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-gray-700">District</label>
-          <select
-            v-model="district"
-            @change="updateThanas"
-            class="input-field w-full"
-          >
-            <option value="" disabled selected>Select District</option>
-            <option
-              v-for="district in districts"
-              :key="district"
-              :value="district"
-            >
-              {{ district }}
-            </option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-gray-700">Thana</label>
-          <select v-model="thana" class="input-field w-full">
-            <option value="" disabled selected>Select Thana</option>
-            <option v-for="thana in thanas" :key="thana" :value="thana">
-              {{ thana }}
-            </option>
-          </select>
-        </div>
-      </div>
+			<!-- Upload Passport Image -->
+			<div>
+				<label class="block text-gray-700">Upload Passport Image</label>
+				<input
+					type="file"
+					class="file-input"
+					@change="(e) => handleFileUpload(e, 'passportImage')"
+				/>
+			</div>
 
-      <!-- Full Address -->
-      <div class="col-span-1 sm:col-span-2">
-        <label class="block text-gray-700">Full Address</label>
-        <textarea
-          v-model="address"
-          @blur="validateField('address')"
-          @input="validateField('address')"
-          class="input-field w-full"
-          placeholder="Enter full address"
-        ></textarea>
-        <p
-          v-if="touched.address && errors.address"
-          class="text-red-500 text-sm mt-1"
-        >
-          {{ errors.address }}
-        </p>
-      </div>
+			<!-- Upload Profile Image -->
+			<div>
+				<label class="block text-gray-700">Upload Profile Image</label>
+				<input
+					type="file"
+					class="file-input"
+					@change="(e) => handleFileUpload(e, 'image')"
+				/>
+			</div>
 
-      <!-- Payment Method & Transaction ID -->
-      <div>
-        <label class="block text-gray-700">Select payment method</label>
-        <select v-model="paymentMethod" class="input-field">
-          <option value="" disabled selected>Select Payment Method</option>
-          <option>Mobile Wallet</option>
-          <option>Bank Transfer</option>
-          <option>Cash Payment</option>
-        </select>
-      </div>
-      <div>
-        <label class="block text-gray-700">Transaction ID</label>
-        <input
-          v-model="transactionId"
-          type="text"
-          @blur="validateField('transactionId')"
-          @input="validateField('transactionId')"
-          class="input-field"
-          placeholder="Enter transaction ID"
-        />
-        <p
-          v-if="touched.transactionId && errors.transactionId"
-          class="text-red-500 text-sm mt-1"
-        >
-          {{ errors.transactionId }}
-        </p>
-      </div>
+			<!-- Division -->
+			<div>
+				<label class="block text-gray-700">Division</label>
+				<select
+					v-model="form.division"
+					@blur="validateField('division')"
+					class="input-field"
+				>
+					<option value="" disabled selected>Select Division</option>
+					<option
+						v-for="division in divisions"
+						:key="division.id"
+						:value="division.id"
+					>
+						{{ division.name }}
+					</option>
+				</select>
+			</div>
 
-      <!-- Submit Button -->
-      <div class="col-span-1 sm:col-span-2 text-center mt-6">
-        <button
-          type="submit"
-          class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 w-full sm:w-auto"
-        >
-          Submit
-        </button>
-      </div>
-    </form>
+			<!-- District -->
+			<div>
+				<label class="block text-gray-700">District</label>
+				<select
+					v-model="form.district"
+					@blur="validateField('district')"
+					class="input-field"
+				>
+					<option value="" disabled selected>Select District</option>
+					<option
+						v-for="district in districts"
+						:key="district.id"
+						:value="district.id"
+					>
+						{{ district.name }}
+					</option>
+				</select>
+			</div>
 
-    <!-- Terms and Conditions Link -->
-    <div class="text-center mt-6">
-      <a href="#" class="text-blue-600" @click.prevent="toggleModal"
-        >Read terms and conditions</a
-      >
-    </div>
+			<!-- Thana -->
+			<div>
+				<label class="block text-gray-700">Thana</label>
+				<select
+					v-model="form.thana"
+					@blur="validateField('thana')"
+					class="input-field"
+				>
+					<option value="" disabled selected>Select Thana</option>
+					<option v-for="thana in thanas" :key="thana.id" :value="thana.id">
+						{{ thana.name }}
+					</option>
+				</select>
+			</div>
 
-    <!-- Terms and Conditions Modal -->
-    <div
-      v-if="showModal"
-      class="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-50"
-    >
-      <div class="bg-white p-8 rounded-lg shadow-lg w-3/4 md:w-1/2">
-        <h2 class="text-xl font-semibold mb-4">Terms and Conditions</h2>
-        <p class="mb-4 text-sm text-gray-600">
-          Here are the terms and conditions...
-        </p>
-        <button
-          @click="toggleModal"
-          class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-        >
-          Close
-        </button>
-      </div>
-    </div>
-  </div>
+			<!-- Address -->
+			<div class="col-span-1 sm:col-span-2">
+				<label class="block text-gray-700">Full Address</label>
+				<textarea
+					v-model="form.address"
+					@blur="validateField('address')"
+					class="input-field"
+					placeholder="Enter full address"
+				></textarea>
+				<p
+					v-if="touched.address && errors.address"
+					class="text-red-500 text-sm"
+				>
+					{{ errors.address }}
+				</p>
+			</div>
+
+			<!-- Payment Method -->
+			<div>
+				<label class="block text-gray-700">Payment Method</label>
+				<select
+					v-model="form.paymentMethod"
+					@blur="validateField('paymentMethod')"
+					class="input-field"
+				>
+					<option value="" disabled selected>Select Payment Method</option>
+					<option
+						v-for="payment in paymentMethods"
+						:key="payment.id"
+						:value="payment.id"
+					>
+						{{ payment.name }}
+					</option>
+				</select>
+				<p
+					v-if="touched.paymentMethod && errors.paymentMethod"
+					class="text-red-500 text-sm"
+				>
+					{{ errors.paymentMethod }}
+				</p>
+			</div>
+
+			<!-- Transaction ID -->
+			<div>
+				<label class="block text-gray-700">Transaction ID</label>
+				<input
+					v-model="form.transactionId"
+					type="text"
+					class="input-field"
+					placeholder="Enter transaction ID"
+				/>
+			</div>
+
+			<!-- Submit Button -->
+			<div class="col-span-1 sm:col-span-2 text-center mt-6">
+				<button
+					type="submit"
+					:disabled="isSubmitting"
+					class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 w-full sm:w-auto"
+				>
+					<span v-if="isSubmitting">Submitting...</span>
+					<span v-else>Submit</span>
+				</button>
+			</div>
+		</form>
+	</div>
 </template>
-
-<script>
-export default {
-  data() {
-    return {
-      showModal: false,
-    };
-  },
-  methods: {
-    toggleModal() {
-      this.showModal = !this.showModal;
-    },
-  },
-};
-</script>
 
 <style scoped>
 .input-field {
-  @apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500;
+	@apply w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500;
 }
-
 .file-input {
-  @apply w-full border border-dashed border-gray-400 p-2 rounded-lg cursor-pointer;
+	@apply w-full px-4 py-2 border border-dashed border-gray-400 rounded-lg cursor-pointer;
 }
 </style>
